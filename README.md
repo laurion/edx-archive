@@ -6,8 +6,10 @@ npm install edx-archive -g
 
 ## Usage example
 
+The following will download edX demo course pages in `png` format:
+
 ```
-edx-archive -u your@email.com -p edx_password "https://courses.edx.org/courses/edX/DemoX/Demo_Course/course/"
+edx-archive -u your@email.com -p edx_password --format png "https://courses.edx.org/courses/edX/DemoX/Demo_Course/course/"
 ```
 
 ## Full list of options
