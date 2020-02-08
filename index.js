@@ -91,11 +91,25 @@ async function loginBrowser(browser, configuration) {
 async function getPages(browser, configuration) {
   const page = await openPage(configuration.courseUrl, browser, configuration);
 
-  const pages = await page.evaluate(() => {
-    return $("a.outline-item").map(function(i, e) {
-      return { "index": i, "url": e.href };
+  const subsectionUrls = await page.evaluate(() => {
+    return $("a.outline-button").map(function(i, e) {
+      return e.href;
     }).toArray();
   });
+
+  const pages = [];
+  for (url of subsectionUrls) {
+    await page.goto(url);
+    const subsectionPages = await page.evaluate((startIndex) => {
+      return $("button.tab.nav-item").map(function(i, e) {
+        return {
+          "index": startIndex + i,
+          "url": window.location.protocol + "//" + window.location.host + "/" + window.location.pathname + $(e).data("element")
+        };
+      }).toArray();
+    }, pages.length);
+    pages.push(...subsectionPages);
+  }
 
   await page.close();
 
