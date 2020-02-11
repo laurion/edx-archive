@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-const path = require('path');
-const fs = require('fs');
-const sanitize = require("sanitize-filename");
-const puppeteer = require('puppeteer');
-const prompt = require('async-prompt');
-const program = require('commander');
-const retry = require('async-retry');
-const PromisePool = require('es6-promise-pool');
+import path = require('path');
+import fs = require('fs');
+import sanitize = require("sanitize-filename");
+import puppeteer = require('puppeteer');
+import prompt = require('async-prompt');
+import program = require('commander');
+import retry = require('async-retry');
+import PromisePool = require('es6-promise-pool');
 
 
 function parseFormat(value, previous) {
@@ -92,13 +92,13 @@ async function getPages(browser, configuration) {
   const page = await openPage(configuration.courseUrl, browser, configuration);
 
   const subsectionUrls = await page.evaluate(() => {
-    return $("a.outline-button").map(function(i, e) {
+    return $("a.outline-button").map(function(_, e: HTMLAnchorElement) {
       return e.href;
     }).toArray();
   });
 
   const pages = [];
-  for (url of subsectionUrls) {
+  for (const url of subsectionUrls) {
     await page.goto(url);
     const subsectionPages = await page.evaluate((startIndex) => {
       return $("button.tab.nav-item").map(function(i, e) {
