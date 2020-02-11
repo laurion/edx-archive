@@ -10,7 +10,13 @@ import retry = require('async-retry');
 import PromisePool = require('es6-promise-pool');
 
 
-function parseFormat(value, previous) {
+type Configuration = any
+
+
+interface PageData { index: number; title: any; url: any; }
+
+
+function parseFormat(value: string, _: string) {
   if (!["pdf", "png"].includes(value)) {
     console.log(`invalid format: ${value}`);
     process.exit(1);
@@ -20,7 +26,7 @@ function parseFormat(value, previous) {
 
 async function getConfiguration() {
   const courseUrlPattern = /^https:\/\/courses.edx.org\/courses\/.*\/course\/$/
-  function parseInteger(v) { return parseInt(v); }
+  function parseInteger(v: string) { return parseInt(v); }
 
   program
     .name("edx-archive")
@@ -59,14 +65,14 @@ async function getConfiguration() {
   return configuration;
 }
 
-async function openPage(url, browser, configuration) {
+async function openPage(url: string, browser: puppeteer.Browser) {
   const page = await browser.newPage();
   await page.goto(url);
   return page;
 }
 
-async function loginBrowser(browser, configuration) {
-  const page = await openPage('https://courses.edx.org/login', browser, configuration);
+async function loginBrowser(browser: puppeteer.Browser, configuration: Configuration) {
+  const page = await openPage('https://courses.edx.org/login', browser);
   await page.type('#login-email', configuration.user);
   await page.type('#login-password', configuration.password);
   const loginEndpoints = [
@@ -88,8 +94,8 @@ async function loginBrowser(browser, configuration) {
   }
 }
 
-async function getPages(browser, configuration) {
-  const page = await openPage(configuration.courseUrl, browser, configuration);
+async function getPages(browser: puppeteer.Browser, configuration: Configuration) {
+  const page = await openPage(configuration.courseUrl, browser);
 
   const subsectionUrls = await page.evaluate(() => {
     return $("a.outline-button").map(function(_, e: HTMLAnchorElement) {
@@ -121,7 +127,7 @@ async function getPages(browser, configuration) {
   return pages;
 }
 
-async function savePage(pageData, page, configuration) {
+async function savePage(pageData: PageData, page: puppeteer.Page, configuration: Configuration) {
   const filename = path.join(configuration.output, `${pageData.index + 1} - ${pageData.title}`);
 
   if (configuration.debug) {
@@ -160,7 +166,7 @@ function prettifyPage() {
   $(".video-wrapper").hide();
 }
 
-function buildTitle(breadcumbs) {
+function buildTitle(breadcumbs: string) {
   return breadcumbs.split(/\n/).map((part) => {
     return sanitize(part.trim())
       .replace(/\s+/g, " ")
@@ -180,8 +186,8 @@ function waitForMathJax() {
   });
 }
 
-async function processPage(pageData, browser, configuration) {
-  const page = await openPage(pageData.url, browser, configuration);
+async function processPage(pageData: PageData, browser: puppeteer.Browser, configuration: Configuration) {
+  const page = await openPage(pageData.url, browser);
 
   pageData.title = buildTitle(await page.evaluate(() => {
     return $(".breadcrumbs").first().text();
