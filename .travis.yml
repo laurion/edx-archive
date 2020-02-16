@@ -1,0 +1,12 @@
+language: node_js
+
+node_js: 12
+
+#install:
+#  - sudo apt-get install openimageio-tools
+
+script:
+  - npm link
+  - edx-archive --user $EMAIL --password $PASSWORD --format png "https://courses.edx.org/courses/edX/DemoX/Demo_Course/course/"
+#  - idiff -fail 0.004 -failpercent 1.0 "example.png" "Archive/14 - Example Week 1 Getting Started - Homework - Question Styles - Mathematical Expressions.png"
+  - test -f "Archive/14 - Example Week 1 Getting Started - Homework - Question Styles - Mathematical Expressions.png"
