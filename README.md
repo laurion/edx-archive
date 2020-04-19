@@ -1,4 +1,4 @@
-![npm](https://img.shields.io/npm/v/edx-archive)
+[![npm](https://img.shields.io/npm/v/edx-archive)](https://www.npmjs.com/package/edx-archive)
 [![Build Status](https://travis-ci.com/EugeneLoy/edx-archive.svg?branch=master)](https://travis-ci.com/EugeneLoy/edx-archive)
 
 `edx-archive` allows you to download edX course pages. It allows you to save:
