@@ -25,7 +25,6 @@
   "author": "Eugene Loy",
   "license": "ISC",
   "dependencies": {
-    "@types/async-retry": "^1.4.1",
     "@types/commander": "^2.12.2",
     "@types/jquery": "^3.3.32",
     "@types/mathjax": "0.0.36",
@@ -33,10 +32,10 @@
     "@types/puppeteer": "^2.0.0",
     "@types/sanitize-filename": "^1.6.3",
     "async-prompt": "^1.0.1",
-    "async-retry": "^1.2.3",
+    "backoff-rxjs": "^6.3.3",
     "commander": "^4.0.1",
-    "es6-promise-pool": "^2.5.0",
     "puppeteer": "^2.0.0",
+    "rxjs": "^6.5.4",
     "sanitize-filename": "^1.6.3"
   }
 }

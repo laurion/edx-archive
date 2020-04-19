@@ -1,32 +1,32 @@
 #!/usr/bin/env node
 
-import path = require('path');
-import fs = require('fs');
-import sanitize = require("sanitize-filename");
-import puppeteer = require('puppeteer');
-import prompt = require('async-prompt');
-import program = require('commander');
-import retry = require('async-retry');
-import PromisePool = require('es6-promise-pool');
+import puppeteer = require('puppeteer')
+import prompt = require('async-prompt')
+import program = require('commander')
+import { of, from, Observable } from 'rxjs'
+
+import { toArray, mergeMap, flatMap, tap, shareReplay, filter } from 'rxjs/operators'
+import { retryBackoff } from "backoff-rxjs"
+
+import { Configuration, Downloader } from "./Core"
+import { EdxDownloader } from "./EdxDownloader"
 
 
-type Configuration = any
-
-
-interface PageData { index: number; title: any; url: any; }
-
+function clone(object: any, overwtite: any = {}) {
+  return Object.assign(Object.assign({}, object), overwtite)
+}
 
 function parseFormat(value: string, _: string) {
   if (!["pdf", "png"].includes(value)) {
-    console.log(`invalid format: ${value}`);
-    process.exit(1);
+    console.log(`invalid format: ${value}`)
+    process.exit(1)
   }
-  return value;
+  return value
 }
 
-async function getConfiguration() {
+async function getConfiguration(): Promise<Configuration> {
   const courseUrlPattern = /^https:\/\/courses.edx.org\/courses\/.*\/course\/$/
-  function parseInteger(v: string) { return parseInt(v); }
+  function parseInteger(v: string) { return parseInt(v) }
 
   program
     .name("edx-archive")
@@ -39,217 +39,113 @@ async function getConfiguration() {
     .option('-d, --delay <seconds>', 'delay before saving page', parseInteger, 1)
     .option('-c, --concurrency <number>', 'number of pages to save in parallel', parseInteger, 4)
     .option('--debug', 'output extra debugging', false)
-    .parse(process.argv);
+    .parse(process.argv)
 
   if (program.args.length !== 1) {
-    program.help();
+    program.help()
   }
 
   if (!program.args[0].match(courseUrlPattern)) {
-    console.log("Invalid course url.\nCourse url should look like: https://courses.edx.org/<course_id>/course/");
-    process.exit(1);
+    console.log("Invalid course url.\nCourse url should look like: https://courses.edx.org/<course_id>/course/")
+    process.exit(1)
   }
 
-  const configuration = Object.assign({}, program.opts());
+  const configuration = clone(program.opts())
 
-  configuration.courseUrl = program.args[0];
+  configuration.courseUrl = program.args[0]
 
   if (!configuration.user) {
-    configuration.user = await prompt('User: ');
+    configuration.user = await prompt('User: ')
   }
 
   if (!configuration.password) {
-    configuration.password = await prompt.password('Password: ');
+    configuration.password = await prompt.password('Password: ')
   }
 
-  return configuration;
-}
-
-async function openPage(url: string, browser: puppeteer.Browser) {
-  const page = await browser.newPage();
-  await page.goto(url);
-  return page;
-}
-
-async function loginBrowser(browser: puppeteer.Browser, configuration: Configuration) {
-  const page = await openPage('https://courses.edx.org/login', browser);
-  await page.type('#login-email', configuration.user);
-  await page.type('#login-password', configuration.password);
-  const loginEndpoints = [
-    "https://courses.edx.org/user_api/v1/account/login_session/",
-    "https://courses.edx.org/login_ajax"
-  ];
-  const [response] = await Promise.all([
-    page.waitForResponse(r => loginEndpoints.includes(r.url())),
-    page.click('.login-button')
-  ]);
-
-  if (configuration.debug) {
-    console.log(`Login response status code: ${response.status()}`);
-  }
-
-  if (response.status() !== 200) {
-    console.log("Login failed.");
-    process.exit(1);
-  }
-}
-
-async function getPages(browser: puppeteer.Browser, configuration: Configuration) {
-  const page = await openPage(configuration.courseUrl, browser);
-
-  const subsectionUrls = await page.evaluate(() => {
-    return $("a.outline-button").map(function(_, e: HTMLAnchorElement) {
-      return e.href;
-    }).toArray();
-  });
-
-  const pages = [];
-  for (const url of subsectionUrls) {
-    await page.goto(url);
-    const subsectionPages = await page.evaluate((startIndex) => {
-      return $("button.tab.nav-item").map(function(i, e) {
-        return {
-          "index": startIndex + i,
-          "url": window.location.protocol + "//" + window.location.host + "/" + window.location.pathname + $(e).data("element")
-        };
-      }).toArray();
-    }, pages.length);
-    pages.push(...subsectionPages);
-  }
-
-  await page.close();
-
-  if (configuration.debug) {
-    console.log("Fetched pages:");
-    console.log(pages);
-  }
-
-  return pages;
-}
-
-async function savePage(pageData: PageData, page: puppeteer.Page, configuration: Configuration) {
-  const filename = path.join(configuration.output, `${pageData.index + 1} - ${pageData.title}`);
-
-  if (configuration.debug) {
-    console.log(`Saving page: ${pageData.url} as: ${filename}`);
-  }
-
-  if (!fs.existsSync(configuration.output)) {
-      fs.mkdirSync(configuration.output);
-  }
-
-  if (configuration.format === "png") {
-    await page.screenshot({ path: filename + '.png', fullPage: true });
-  }
-  if (configuration.format === "pdf") {
-    await page.pdf({ path: filename + '.pdf' });
-  }
-}
-
-function prettifyPage() {
-  $(".show").trigger("click");
-  $(".hideshowbottom").trigger("click");
-  $(".discussion-show.shown").trigger("click");
-  $(".discussion-module").hide();
-  $("header").hide();
-  $("#footer-edx-v3").hide();
-  $(".course-tabs").hide();
-  $(".course-expiration-message").hide();
-  $(".verification-sock").hide();
-  $("#frontend-component-cookie-policy-banner").hide();
-  $(".sequence-bottom").hide();
-  $(".sequence-nav").hide();
-  $(".nav-utilities").hide();
-  $(".course-license").hide();
-  $(".bookmark-button-wrapper").hide();
-  $(".subtitles").hide();
-  $(".video-wrapper").hide();
-}
-
-function buildTitle(breadcumbs: string) {
-  return breadcumbs.split(/\n/).map((part) => {
-    return sanitize(part.trim())
-      .replace(/\s+/g, " ")
-      .replace(/^(Course)$/, "");
-  }).filter((Boolean)).join(" - ");
-}
-
-function waitForMathJax() {
-  return new Promise(function(resolve, reject) {
-    try {
-      // TODO this might be unreliable. Try to find a better way to detect
-      // whether math has been processed
-      MathJax.Hub.Queue(() => { resolve(); });
-    } catch (e) {
-      reject(e);
-    }
-  });
-}
-
-async function processPage(pageData: PageData, browser: puppeteer.Browser, configuration: Configuration) {
-  const page = await openPage(pageData.url, browser);
-
-  pageData.title = buildTitle(await page.evaluate(() => {
-    return $(".breadcrumbs").first().text();
-  }));
-
-  await page.evaluate(prettifyPage);
-
-  await page.evaluate(waitForMathJax)
-
-  await page.waitFor(configuration.delay * 1000);
-
-  await savePage(pageData, page, configuration);
-
-  await page.close();
+  return configuration
 }
 
 async function main() {
+  const kickstart = of(null as void)
+  var browser: puppeteer.Browser
+
   try {
     // build configuration
-    const configuration = await getConfiguration();
+    const configuration = await getConfiguration()
     if (configuration.debug) {
-      console.log("Configuration:");
-      console.log(Object.assign(Object.assign({}, configuration), { user: "<censored>", password: "<censored>" }));
+      console.log("Configuration:")
+      console.log(clone(configuration, { user: "<censored>", password: "<censored>" }))
+    }
+    const backoffConfig = {
+      initialInterval: 5000,
+      maxInterval: 60000,
+      maxRetries: configuration.retries,
     }
 
-    // log in browser
-    const browser = await puppeteer.launch();
-    await loginBrowser(browser, configuration);
-
-    // build list of pages that should be saved
-    const pages = await retry(async () => {
-      return await getPages(browser, configuration);
-    }, {
-      retries: configuration.retries,
-      onRetry: () => { console.log("Failed to fetch pages. Retrying."); }
-    });
-
-    // process pages
-    const jobGenerator = function * () {
-      for (const pageData of pages) {
-        console.log(`Processing page: ${pageData.url}.`);
-        yield retry(async () => {
-          return await processPage(pageData, browser, configuration);
-        }, {
-          retries: configuration.retries,
-          onRetry: () => { console.log(`Failed to process page: ${pageData.url}. Retrying.`); }
-        });
-      }
+    // init helper for logging\debug info
+    function trace<T>(
+      logFunction: (v: T) => void,
+      extraLogFunction: (v: T) => void = v => console.log(v)
+    ) {
+      return (source: Observable<T>) => source.pipe(
+        tap(v => { logFunction(v); if (configuration.debug) extraLogFunction(v) })
+      )
     }
-    const pool = new PromisePool(jobGenerator, configuration.concurrency);
-    await pool.start();
 
-    //
-    await browser.close();
-    console.log(`\nSaved ${pages.length} pages to: ${path.resolve(configuration.output)}`);
-    console.log("Done.");
+    // prepare downloader
+    browser = await puppeteer.launch()
+    const downloader = new EdxDownloader(configuration, browser) as Downloader
 
+    // // login
+    await kickstart.pipe(
+      tap(() => console.log("Logging in...")),
+      shareReplay(),
+      flatMap(downloader.login),
+      tap(() => console.log("Logged in.")),
+      retryBackoff(backoffConfig),
+    ).toPromise()
+
+    // getting download tasks
+    const tasks = await kickstart.pipe(
+      tap(() => console.log("Getting download tasks...")),
+      shareReplay(),
+      flatMap(downloader.getDownloadTasks),
+      trace(() => {}, task => { console.log("Created download task:"); console.log(task) }),
+      // TODO filter and distinct here
+      toArray(),
+      trace(tasks => console.log(`Scheduled ${tasks.length} download tasks.`)),
+      retryBackoff(backoffConfig),
+    ).toPromise()
+
+    // perform downloads
+    const results = await kickstart.pipe(
+      tap(() => console.log("Downloading...")),
+      flatMap(() => from(tasks)),
+      shareReplay(),
+      mergeMap(
+        task => of(task).pipe(
+          trace(task => console.log(`Downloading task: ${task.name}`)),
+          shareReplay(),
+          flatMap(downloader.performDownload),
+          trace(result => console.log(`Download complete: ${result.task.name}`)),
+          retryBackoff(backoffConfig),
+        ),
+        configuration.concurrency
+      ),
+      toArray(),
+    ).toPromise()
+
+    // output report
+    downloader.reportResults(results)
+
+    // shutdown
+    await browser.close()
+    console.log("Done.")
   } catch (e) {
-    console.error(e);
-    process.exit(1);
+    console.error(e)
+    browser?.close()
+    process.exit(1)
   }
 }
 
-
-main();
+main()
