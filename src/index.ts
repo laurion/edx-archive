@@ -1,32 +1,51 @@
 #!/usr/bin/env node
 
-import puppeteer = require('puppeteer')
 import prompt = require('async-prompt')
 import program = require('commander')
-import { of, from, Observable } from 'rxjs'
 
-import { toArray, mergeMap, flatMap, tap, shareReplay, filter } from 'rxjs/operators'
+import { launch, Browser } from 'puppeteer'
+import { of, from, Observable } from 'rxjs'
+import { toArray, mergeMap, flatMap, tap, shareReplay, filter, distinct } from 'rxjs/operators'
 import { retryBackoff } from "backoff-rxjs"
 
 import { Configuration, Downloader } from "./Core"
+import { clone } from "./Utils"
 import { EdxDownloader } from "./EdxDownloader"
+import { CourseraDownloader } from "./CourseraDownloader"
 
 
-function clone(object: any, overwtite: any = {}) {
-  return Object.assign(Object.assign({}, object), overwtite)
-}
-
-function parseFormat(value: string, _: string) {
-  if (!["pdf", "png"].includes(value)) {
-    console.log(`invalid format: ${value}`)
-    process.exit(1)
+const downloaders = [
+  {
+    platform: "Edx",
+    courseUrlPattern: EdxDownloader.courseUrlPattern,
+    factory: (c: Configuration, b: Browser) => new EdxDownloader(c, b) as Downloader
+  },
+  {
+    platform: "Coursera",
+    courseUrlPattern: CourseraDownloader.courseUrlPattern,
+    factory: (c: Configuration, b: Browser) => new CourseraDownloader(c, b) as Downloader
   }
-  return value
+]
+
+function getDownloader(courseUrl: string) {
+  const found = downloaders.find(d => courseUrl.match(d.courseUrlPattern))
+  if (!found) {
+    throw `Unable to find downloader for this course url: ${courseUrl}`
+  } else {
+    return found
+  }
 }
 
 async function getConfiguration(): Promise<Configuration> {
-  const courseUrlPattern = /^https:\/\/courses.edx.org\/courses\/.*\/course\/$/
   function parseInteger(v: string) { return parseInt(v) }
+
+  function parseFormat(value: string, _: string) {
+    if (!["pdf", "png"].includes(value)) {
+      console.log(`invalid format: ${value}`)
+      process.exit(1)
+    }
+    return value
+  }
 
   program
     .name("edx-archive")
@@ -38,16 +57,12 @@ async function getConfiguration(): Promise<Configuration> {
     .option('-r, --retries <retries>', 'number of retry attempts in case of failure', parseInteger, 3)
     .option('-d, --delay <seconds>', 'delay before saving page', parseInteger, 1)
     .option('-c, --concurrency <number>', 'number of pages to save in parallel', parseInteger, 4)
+    .option('--no-headless', 'disable headless mode')
     .option('--debug', 'output extra debugging', false)
     .parse(process.argv)
 
   if (program.args.length !== 1) {
     program.help()
-  }
-
-  if (!program.args[0].match(courseUrlPattern)) {
-    console.log("Invalid course url.\nCourse url should look like: https://courses.edx.org/<course_id>/course/")
-    process.exit(1)
   }
 
   const configuration = clone(program.opts())
@@ -67,7 +82,7 @@ async function getConfiguration(): Promise<Configuration> {
 
 async function main() {
   const kickstart = of(null as void)
-  var browser: puppeteer.Browser
+  var browser: Browser
 
   try {
     // build configuration
@@ -93,8 +108,9 @@ async function main() {
     }
 
     // prepare downloader
-    browser = await puppeteer.launch()
-    const downloader = new EdxDownloader(configuration, browser) as Downloader
+    const downloaderFactory = getDownloader(configuration.courseUrl).factory
+    browser = await launch({ headless: configuration.headless })
+    const downloader = downloaderFactory(configuration, browser)
 
     // // login
     await kickstart.pipe(
