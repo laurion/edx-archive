@@ -17,11 +17,13 @@ const downloaders = [
   {
     platform: "Edx",
     courseUrlPattern: EdxDownloader.courseUrlPattern,
+    concurrency: 4,
     factory: (c: Configuration) => new EdxDownloader(c) as Downloader
   },
   {
     platform: "Coursera",
     courseUrlPattern: CourseraDownloader.courseUrlPattern,
+    concurrency: 1,
     factory: (c: Configuration) => new CourseraDownloader(c) as Downloader
   }
 ]
@@ -55,7 +57,7 @@ async function getConfiguration(): Promise<Configuration> {
     .option('-f, --format <format>', 'save pages as pdf or png', parseFormat, 'pdf')
     .option('-r, --retries <retries>', 'number of retry attempts in case of failure', parseInteger, 3)
     .option('-d, --delay <seconds>', 'delay before saving page', parseInteger, 1)
-    .option('-c, --concurrency <number>', 'number of pages to save in parallel', parseInteger, 4)
+    .option('-c, --concurrency <number>', 'number of pages to save in parallel', parseInteger, null)
     .option('--no-headless', 'disable headless mode')
     .option('--debug', 'output extra debugging', false)
     .parse(process.argv)
@@ -67,6 +69,10 @@ async function getConfiguration(): Promise<Configuration> {
   const configuration = clone(program.opts())
 
   configuration.courseUrl = program.args[0]
+
+  if (configuration.concurrency === null) {
+    configuration.concurrency = getDownloader(configuration.courseUrl).concurrency
+  }
 
   if (!configuration.user) {
     configuration.user = await prompt('User: ')
