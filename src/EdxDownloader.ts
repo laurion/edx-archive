@@ -1,9 +1,10 @@
 import path = require('path')
 
-import { defer } from 'rxjs'
+import { from } from 'rxjs'
+import { flatMap } from 'rxjs/operators'
 
 import { Downloader, DownloadTask, DownloadResult } from "./Core"
-import { deferFrom, waitForMathJax, getInnerText } from "./Utils"
+import { waitForMathJax, getInnerText } from "./Utils"
 
 
 interface EdxDownloadTask extends DownloadTask {
@@ -19,9 +20,7 @@ export class EdxDownloader extends Downloader {
 
   static courseUrlPattern = /^https:\/\/courses.edx.org\/courses\/.*\/course\/$/
 
-  login = () => defer(async () => {
-    const page = await this.openPage('https://courses.edx.org/login')
-
+  login = () => this.withPage('https://courses.edx.org/login', async page => {
     await page.waitFor('#login-email')
     await page.type('#login-email', this.configuration.user)
     await page.type('#login-password', this.configuration.password)
@@ -37,11 +36,11 @@ export class EdxDownloader extends Downloader {
     if (response.status() !== 200) {
       throw `Login failed. Login response status code: ${response.status()}`
     }
+
+    this.cookies.push(...await page.cookies())
   })
 
-  getDownloadTasks = () => deferFrom(async () => {
-    const page = await this.openPage(this.configuration.courseUrl)
-
+  getDownloadTasks = () => this.withPage(this.configuration.courseUrl, async page => {
     const tasks: DownloadTask[] = []
 
     // @ts-ignore
@@ -57,13 +56,12 @@ export class EdxDownloader extends Downloader {
       }
     }
 
-    await page.close()
-
     return tasks
-  })
+  }).pipe(
+    flatMap(ts => from(ts))
+  )
 
-  performDownload = (task: EdxDownloadTask) => defer(async () => {
-    const page = await this.openPage(task.url)
+  performDownload = (task: EdxDownloadTask) => this.withPage(task.url, async page => {
     await page.waitFor("#seq_content")
     await waitForMathJax(page)
     await page.waitFor(this.configuration.delay * 1000)
@@ -74,8 +72,6 @@ export class EdxDownloader extends Downloader {
     await page.evaluate(prettifyPage)
 
     await this.savePage(baseName, page)
-
-    await page.close()
 
     return { task: task, baseName: baseName } as EdxDownloadResult
   })

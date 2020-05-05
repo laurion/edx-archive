@@ -1,13 +1,8 @@
 import { Page } from 'puppeteer'
-import { defer, from } from 'rxjs'
-import { flatMap } from 'rxjs/operators'
+
 
 export function clone(object: any, overwtite: any = {}) {
   return Object.assign(Object.assign({}, object), overwtite)
-}
-
-export function deferFrom<T>(f: () => Promise<T[]>) {
-  return defer(f).pipe(flatMap((x) => from(x)))
 }
 
 export function getInnerText(selector: string, page: Page): Promise<string[]> {

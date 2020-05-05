@@ -1,10 +1,11 @@
 import path = require('path')
 
 import { launch, Browser } from 'puppeteer'
-import { defer } from 'rxjs'
+import { defer, from } from 'rxjs'
+import { flatMap } from 'rxjs/operators'
 
 import { Downloader, DownloadTask, DownloadResult } from "./Core"
-import { deferFrom, waitForMathJax, getInnerText } from "./Utils"
+import { waitForMathJax, getInnerText } from "./Utils"
 
 
 interface CourseraDownloadTask extends DownloadTask {
@@ -58,8 +59,7 @@ export class CourseraDownloader extends Downloader {
     }
   })
 
-  getDownloadTasks = () => deferFrom(async () => {
-    const page = await this.openPage(this.configuration.courseUrl)
+  getDownloadTasks = () => this.withPage(this.configuration.courseUrl, async page => {
     await page.waitFor("a.rc-WeekNavigationItem")
     await page.waitFor(this.configuration.delay * 1000)
 
@@ -87,13 +87,12 @@ export class CourseraDownloader extends Downloader {
       }
     }
 
-    await page.close()
-
     return tasks
-  })
+  }).pipe(
+    flatMap(ts => from(ts))
+  )
 
-  performDownload = (task: CourseraDownloadTask) => defer(async () => {
-    const page = await this.openPage(task.url)
+  performDownload = (task: CourseraDownloadTask) => this.withPage(task.url, async page => {
     await page.waitFor(".rc-TunnelVisionWrapper__content-body")
     await waitForMathJax(page)
     await page.waitFor(this.configuration.delay * 1000)
@@ -104,8 +103,6 @@ export class CourseraDownloader extends Downloader {
     await page.evaluate(prettifyPage)
 
     await this.savePage(baseName, page)
-
-    await page.close()
 
     return { task: task, baseName: baseName } as CourseraDownloadResult
   })

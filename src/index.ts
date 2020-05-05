@@ -3,7 +3,6 @@
 import prompt = require('async-prompt')
 import program = require('commander')
 
-import { launch, Browser } from 'puppeteer'
 import { of, from, Observable } from 'rxjs'
 import { toArray, mergeMap, flatMap, tap, shareReplay, filter, distinct } from 'rxjs/operators'
 import { retryBackoff } from "backoff-rxjs"
@@ -18,12 +17,12 @@ const downloaders = [
   {
     platform: "Edx",
     courseUrlPattern: EdxDownloader.courseUrlPattern,
-    factory: (c: Configuration, b: Browser) => new EdxDownloader(c, b) as Downloader
+    factory: (c: Configuration) => new EdxDownloader(c) as Downloader
   },
   {
     platform: "Coursera",
     courseUrlPattern: CourseraDownloader.courseUrlPattern,
-    factory: (c: Configuration, b: Browser) => new CourseraDownloader(c, b) as Downloader
+    factory: (c: Configuration) => new CourseraDownloader(c) as Downloader
   }
 ]
 
@@ -82,7 +81,7 @@ async function getConfiguration(): Promise<Configuration> {
 
 async function main() {
   const kickstart = of(null as void)
-  var browser: Browser
+  var downloader: Downloader
 
   try {
     // build configuration
@@ -108,9 +107,8 @@ async function main() {
     }
 
     // prepare downloader
-    const downloaderFactory = getDownloader(configuration.courseUrl).factory
-    browser = await launch({ headless: configuration.headless })
-    const downloader = downloaderFactory(configuration, browser)
+    downloader = getDownloader(configuration.courseUrl).factory(configuration)
+    await downloader.init()
 
     // // login
     await kickstart.pipe(
@@ -155,11 +153,12 @@ async function main() {
     downloader.reportResults(results)
 
     // shutdown
-    await browser.close()
+    await downloader.shutdown()
     console.log("Done.")
+    process.exit(0)
   } catch (e) {
     console.error(e)
-    browser?.close()
+    downloader?.shutdown()
     process.exit(1)
   }
 }
