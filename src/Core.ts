@@ -47,7 +47,7 @@ export abstract class Downloader {
     this.browser = await launch({ headless: this.configuration.headless })
     this.browser.on('disconnected', this.onUnexpectedBrowserDisconnect)
     if (this.configuration.debug) {
-      console.log(`Browser PID: ${this.browser.process().pid}`)
+      console.log(`Started browser with PID: ${this.browser.process().pid}`)
     }
   }
 
@@ -64,7 +64,7 @@ export abstract class Downloader {
         await page.goto(url)
         return await f(page)
       } finally {
-        await new Promise(resolve => page.close().finally(resolve))
+        await new Promise(resolve =>page.close().then(resolve).catch(resolve))
       }
     })
   }
