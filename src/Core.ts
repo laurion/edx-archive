@@ -81,7 +81,8 @@ export abstract class Downloader {
       saveTasks.push(page.screenshot({ path: filename + '.png', fullPage: true }))
     }
     if (this.configuration.format === "pdf") {
-      saveTasks.push(page.pdf({ path: filename + '.pdf' }))
+      saveTasks.push(page.emulateMediaType('screen'));
+      saveTasks.push(page.pdf({ path: filename + '.pdf', margin: {top:'14mm', bottom:'14mm', left:'14mm', right:'14mm'}}));
     }
 
     await Promise.race([
