@@ -84,6 +84,7 @@ export class EdxDownloader extends Downloader {
 function prettifyPage() {
   $(".show").trigger("click")
   $(".hideshowbottom").trigger("click")
+  $(".close-modal").trigger("click")
   $(".discussion-show.shown").trigger("click")
   $(".discussion-module").hide()
   $("header").hide()
