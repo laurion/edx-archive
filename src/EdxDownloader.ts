@@ -91,6 +91,7 @@ function prettifyPage() {
   $("#footer-edx-v3").hide()
   $(".course-tabs").hide()
   $(".course-expiration-message").hide()
+  $(".first-purchase-offer-banner").hide()
   $(".verification-sock").hide()
   $("#frontend-component-cookie-policy-banner").hide()
   $(".sequence-bottom").hide()
