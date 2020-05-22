@@ -7,7 +7,7 @@ import { Observable, defer } from 'rxjs'
 
 
 export type Configuration = any
-export type DownloadTask = { id: string; name: string; }
+export type DownloadTask = { id: string; index: number; name: string; }
 export type DownloadResult = { task: DownloadTask }
 
 export abstract class Downloader {

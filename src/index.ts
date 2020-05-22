@@ -38,14 +38,23 @@ function getDownloader(courseUrl: string) {
 }
 
 async function getConfiguration(): Promise<Configuration> {
-  function parseInteger(v: string) { return parseInt(v) }
-
   function parseFormat(value: string, _: string) {
     if (!["pdf", "png"].includes(value)) {
       console.log(`invalid format: ${value}`)
       process.exit(1)
+    } else {
+      return value
     }
-    return value
+  }
+
+  function parseRange(value: string, _: string) {
+    const match = /^(\d+)-(\d+)$/.exec(value)
+    if (!match) {
+      console.log(`invalid range: ${value}`)
+      process.exit(1)
+    } else {
+      return { from: parseInt(match[1]), to: parseInt(match[2]) }
+    }
   }
 
   program
@@ -55,9 +64,10 @@ async function getConfiguration(): Promise<Configuration> {
     .option('-p, --password <password>', 'edx password')
     .option('-o, --output <directory>', 'output directory', 'Archive')
     .option('-f, --format <format>', 'save pages as pdf or png', parseFormat, 'pdf')
-    .option('-r, --retries <retries>', 'number of retry attempts in case of failure', parseInteger, 3)
-    .option('-d, --delay <seconds>', 'delay before saving page', parseInteger, 1)
-    .option('-c, --concurrency <number>', 'number of pages to save in parallel', parseInteger, null)
+    .option('--filter-range <range>', 'filter downloads by number using range, e.g. 1-5', parseRange, { from: 1, to: Infinity })
+    .option('-r, --retries <retries>', 'number of retry attempts in case of failure', v => parseInt(v), 3)
+    .option('-d, --delay <seconds>', 'delay before saving page', v => parseInt(v), 1)
+    .option('-c, --concurrency <number>', 'number of pages to save in parallel', v => parseInt(v), null)
     .option('--no-headless', 'disable headless mode')
     .option('--debug', 'output extra debugging', false)
     .parse(process.argv)
@@ -131,7 +141,11 @@ async function main() {
       shareReplay(),
       flatMap(downloader.getDownloadTasks),
       trace(() => {}, task => { console.log("Created download task:"); console.log(task) }),
-      // TODO filter and distinct here
+      distinct(task => task.id),
+      filter(task =>
+        configuration.filterRange.from <= task.index + 1
+        && configuration.filterRange.to >= task.index + 1
+      ),
       toArray(),
       trace(tasks => console.log(`Scheduled ${tasks.length} download tasks.`)),
       retryBackoff(backoffConfig),

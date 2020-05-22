@@ -9,8 +9,7 @@ import { waitForMathJax, getInnerText } from "./Utils"
 
 
 interface CourseraDownloadTask extends DownloadTask {
-  url: string,
-  index: number,
+  url: string
 }
 
 interface CourseraDownloadResult extends DownloadResult {

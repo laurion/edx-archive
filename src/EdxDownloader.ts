@@ -8,8 +8,7 @@ import { waitForMathJax, getInnerText } from "./Utils"
 
 
 interface EdxDownloadTask extends DownloadTask {
-  url: string,
-  index: number,
+  url: string
 }
 
 interface EdxDownloadResult extends DownloadResult {
