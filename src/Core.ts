@@ -76,12 +76,13 @@ export abstract class Downloader {
       fs.mkdirSync(this.configuration.output)
     }
 
+    await page.emulateMediaType('screen');
+
     const saveTasks: Promise<any>[] = []
     if (this.configuration.format === "png") {
       saveTasks.push(page.screenshot({ path: filename + '.png', fullPage: true }))
     }
     if (this.configuration.format === "pdf") {
-      saveTasks.push(page.emulateMediaType('screen'));
       saveTasks.push(page.pdf({ path: filename + '.pdf', margin: {top:'14mm', bottom:'14mm', left:'14mm', right:'14mm'}}));
     }
 
