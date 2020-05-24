@@ -101,8 +101,8 @@ export abstract class Downloader {
     await page.waitFor(this.configuration.delay * 1000)
   }
 
-  protected buildTitle(breadcumbs: string[]) {
-    return breadcumbs.map(b => sanitize(b)).join(" - ")
+  protected buildTitle(breadcrumbs: string[]) {
+    return breadcrumbs.map(b => sanitize(b)).join(" - ")
   }
 
 }
