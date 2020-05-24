@@ -22,3 +22,38 @@ export async function waitForMathJax(page: Page) {
     }
   }))
 }
+
+export function trackNetworkIdling(page: Page) {
+  page.on('request', onRequestStarted)
+  page.on('requestfinished', onRequestFinished)
+  page.on('requestfailed', onRequestFinished)
+
+  // @ts-ignore
+  page.idleSince = null
+  let active = 0
+
+  function onRequestStarted() {
+    ++active
+  }
+
+  function onRequestFinished() {
+    --active;
+    // @ts-ignore
+    page.idleSince = (active === 0) ? Date.now() : null
+  }
+}
+
+export async function waitForNetworkIdle(page: Page) {
+  const startTime = Date.now()
+  while (true) {
+    const now = Date.now()
+    // @ts-ignore
+    if (page.idleSince !== null && now - page.idleSince > 1000) {
+      return
+    } else if (now - startTime > 30000) {
+      throw "Waiting for network idle timeout"
+    } else {
+      await page.waitFor(100)
+    }
+  }
+}

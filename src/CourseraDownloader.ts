@@ -5,7 +5,7 @@ import { defer, from } from 'rxjs'
 import { flatMap } from 'rxjs/operators'
 
 import { Downloader, DownloadTask, DownloadResult } from "./Core"
-import { waitForMathJax, getInnerText } from "./Utils"
+import { getInnerText } from "./Utils"
 
 
 interface CourseraDownloadTask extends DownloadTask {
@@ -93,8 +93,7 @@ export class CourseraDownloader extends Downloader {
 
   performDownload = (task: CourseraDownloadTask) => this.withPage(task.url, async page => {
     await page.waitFor(".rc-TunnelVisionWrapper__content-body")
-    await waitForMathJax(page)
-    await page.waitFor(this.configuration.delay * 1000)
+    await this.waitForRender(page)
 
     const breadcrumbs = (await getInnerText(".breadcrumb-item", page)).slice(1)
     const baseName = `${task.index + 1} - ${this.buildTitle(breadcrumbs)}`

@@ -5,6 +5,8 @@ import sanitize = require('sanitize-filename')
 import { launch, Browser, Page, Cookie } from 'puppeteer'
 import { Observable, defer } from 'rxjs'
 
+import { trackNetworkIdling, waitForNetworkIdle, waitForMathJax } from "./Utils"
+
 
 export type Configuration = any
 export type DownloadTask = { id: string; index: number; name: string; }
@@ -60,6 +62,7 @@ export abstract class Downloader {
     return defer(async () => {
       const page = await this.browser.newPage()
       try {
+        trackNetworkIdling(page)
         await page.setCookie(...this.cookies)
         await page.goto(url)
         return await f(page)
@@ -90,6 +93,12 @@ export abstract class Downloader {
       Promise.all(saveTasks),
       new Promise((_, reject) => setTimeout(() => reject("Saving page timeout"), 30000))
     ])
+  }
+
+  protected async waitForRender(page: Page) {
+    await waitForNetworkIdle(page)
+    await waitForMathJax(page)
+    await page.waitFor(this.configuration.delay * 1000)
   }
 
   protected buildTitle(breadcumbs: string[]) {

@@ -4,7 +4,7 @@ import { from } from 'rxjs'
 import { flatMap } from 'rxjs/operators'
 
 import { Downloader, DownloadTask, DownloadResult } from "./Core"
-import { waitForMathJax, getInnerText } from "./Utils"
+import { getInnerText } from "./Utils"
 
 
 interface EdxDownloadTask extends DownloadTask {
@@ -62,13 +62,14 @@ export class EdxDownloader extends Downloader {
 
   performDownload = (task: EdxDownloadTask) => this.withPage(task.url, async page => {
     await page.waitFor("#seq_content")
-    await waitForMathJax(page)
-    await page.waitFor(this.configuration.delay * 1000)
+    await this.waitForRender(page)
 
     const breadcrumbs = (await getInnerText(".breadcrumbs span", page)).filter(b => b !== "").slice(1)
     const baseName = `${task.index + 1} - ${this.buildTitle(breadcrumbs)}`
 
     await page.evaluate(prettifyPage)
+
+    await this.waitForRender(page)
 
     await this.savePage(baseName, page)
 
