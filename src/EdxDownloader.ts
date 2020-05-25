@@ -105,4 +105,5 @@ function prettifyPage() {
   $(".bookmark-button-wrapper").hide()
   $(".subtitles").hide()
   $(".video-wrapper").hide()
+  $(".proctored_exam_status").hide()
 }
