@@ -5,7 +5,7 @@ import sanitize = require('sanitize-filename')
 import { launch, Browser, Page, Cookie } from 'puppeteer'
 import { Observable, defer } from 'rxjs'
 
-import { trackNetworkIdling, waitForNetworkIdle, waitForMathJax } from "./Utils"
+import { startRequestLogging, waitForNetworkIdle, waitForMathJax } from "./Utils"
 
 
 export type Configuration = any
@@ -62,7 +62,7 @@ export abstract class Downloader {
     return defer(async () => {
       const page = await this.browser.newPage()
       try {
-        trackNetworkIdling(page)
+        startRequestLogging(page)
         await page.setCookie(...this.cookies)
         await page.goto(url)
         return await f(page)

@@ -1,4 +1,4 @@
-import { Page } from 'puppeteer'
+import { Page, Request } from 'puppeteer'
 
 
 export function clone(object: any, overwtite: any = {}) {
@@ -23,37 +23,33 @@ export async function waitForMathJax(page: Page) {
   }))
 }
 
-export function trackNetworkIdling(page: Page) {
-  page.on('request', onRequestStarted)
-  page.on('requestfinished', onRequestFinished)
-  page.on('requestfailed', onRequestFinished)
-
+export function getRequestLog(page: Page) {
   // @ts-ignore
-  page.idleSince = null
-  let active = 0
-
-  function onRequestStarted() {
-    ++active
+  const p = page as { requestLog: { request: Request; completedAt: number; }[] }
+  if (p.requestLog === undefined) {
+    p.requestLog = []
   }
+  return p.requestLog
+}
 
-  function onRequestFinished() {
-    --active;
-    // @ts-ignore
-    page.idleSince = (active === 0) ? Date.now() : null
-  }
+export function startRequestLogging(page: Page) {
+  const requestLog = getRequestLog(page)
+  page.on('request', r => requestLog.push({ request: r as Request, completedAt: null }))
+  page.on('requestfinished', r => requestLog.find(e => e.request === r).completedAt = Date.now())
+  page.on('requestfailed', r => requestLog.find(e => e.request === r).completedAt = Date.now())
 }
 
 export async function waitForNetworkIdle(page: Page) {
-  const startTime = Date.now()
+  const timeout = Date.now() + 30000
   while (true) {
+    await page.waitFor(100)
     const now = Date.now()
-    // @ts-ignore
-    if (page.idleSince !== null && now - page.idleSince > 1000) {
+    const requestLog = getRequestLog(page)
+    const isIdle = requestLog.every(e => e.completedAt != null)
+    if (isIdle && now - Math.max(...requestLog.map(e => e.completedAt)) > 1000) {
       return
-    } else if (now - startTime > 30000) {
+    } else if (now > timeout) {
       throw "Waiting for network idle timeout"
-    } else {
-      await page.waitFor(100)
     }
   }
 }
