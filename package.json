@@ -1,0 +1,46 @@
+{
+  "name": "edx-archive",
+  "version": "1.8.0",
+  "description": "Simple tool to download edX course pages (including exercises with answers, course materials, errata, etc).",
+  "keywords": [
+    "edx",
+    "mooc",
+    "download",
+    "downloader",
+    "pdf",
+    "png",
+    "cli",
+    "tool"
+  ],
+  "main": "built/index.js",
+  "bin": "built/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "homepage": "https://github.com/EugeneLoy/edx-archive",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EugeneLoy/edx-archive.git"
+  },
+  "author": "Eugene Loy",
+  "license": "ISC",
+  "dependencies": {
+    "@types/commander": "^2.12.2",
+    "@types/jquery": "^3.3.32",
+    "@types/mathjax": "0.0.36",
+    "@types/node": "^13.7.0",
+    "@types/puppeteer": "^2.0.0",
+    "@types/sanitize-filename": "^1.6.3",
+    "async-prompt": "^1.0.1",
+    "backoff-rxjs": "^6.3.3",
+    "commander": "^4.0.1",
+    "puppeteer": "^2.0.0",
+    "rxjs": "^6.5.4",
+    "sanitize-filename": "^1.6.3"
+  },
+  "devDependencies": {
+    "typescript": "^3.8.3"
+  }
+}
